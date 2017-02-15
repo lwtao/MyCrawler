@@ -3,10 +3,20 @@ import urllib
 import urllib2
 import json
 import time
+import datetime
 from bs4 import BeautifulSoup
 
+url_list = ['http://www.yihu.com/doctor/gd/D3AEA17BD4774615B4D1B0624BD4F9CB.shtml'
+    ,'http://www.yihu.com/doctor/gd/6F66B8BF69A34235BFDFD5CEFA134D53.shtml'
+    ,'http://www.yihu.com/doctor/gd/576E193C444A4DE1816A8682270C962B.shtml'
+    ,'http://www.yihu.com/doctor/gd/743C5A3BDEDE42D1A298FB64DCF5AE36.shtml'
+    ,'http://www.yihu.com/doctor/gd/2E01DC937A5A4DE79CF8A1EE07EA2696.shtml'
+    ,'http://www.yihu.com/doctor/gd/ABFD0299B4944045816B207299281A86.shtml'
+    ,'http://www.yihu.com/doctor/gd/55289DFB029C4851B59F9C4660334091.shtml'
+    ,'http://www.yihu.com/doctor/gd/E85BF278D81640EC9310B0C0270453E5.shtml'
+            ]
 
-def getHtml(url, postdata):
+def getHtmlAndHeaders(url, postdata):
     headers = {'User-Agent':
                    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.101 Safari/537.36',
                'Cookie':
@@ -18,9 +28,21 @@ def getHtml(url, postdata):
         headers=headers
     )
     result = urllib2.urlopen(req)
+    result.info()
     html_bytes = result.read()
     html_string = html_bytes.decode('utf-8')
-    return html_string
+    return html_string, result.info()
+
+
+def getHtml(url, postdata):
+    html_result, headers_result = getHtmlAndHeaders(url, postdata)
+    return html_result
+
+def getServerDate(index):
+    html_result, headers_result = getHtmlAndHeaders(url_list[index/(len(url_list)-1)], urllib.urlencode({}))
+    server_date_result = datetime.datetime.strptime(headers_result['Date'], '%a, %d %b %Y %H:%M:%S GMT')
+    print server_date_result
+    return server_date_result
 
 
 hosp_id = '1255'
@@ -34,7 +56,14 @@ postdata = urllib.urlencode({
     'hospital_id': hosp_id
 })
 yuyue_url = ''
-while 1:
+count = 0
+while count < 20:
+    count += 1
+    server_date = getServerDate(count)
+    # 现在是北京时间6:30放号  服务器时间是22:30
+    if server_date.minute < 30:
+        print '还未到30分，跳过去'
+        continue
     html = getHtml("http://www.yihu.com/DoctorArrange/doGetListByPage", postdata)
     soup = BeautifulSoup(html)
     # print soup.prettify()
@@ -46,50 +75,51 @@ while 1:
         break
     else:
         print time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())), ',未找到可以预约的'
-        time.sleep(0.5)
+        time.sleep(0.1)
 
-# 获取排班详细信息
-html = getHtml(yuyue_url, urllib.urlencode({}))
+if yuyue_url != '':
+    # 获取排班详细信息
+    html = getHtml(yuyue_url, urllib.urlencode({}))
 
-# 解析页面
-# {"NumberSN":"76656477","Store":"cc6341dd-0bf1-4356-914c-b398118dfade","SerialNo":"0","CommendTime":"08:00-09:00","ArrangeID":null,"ModeID":"1","Remark":null,"HintType":"3","CommendScope":"08:00-09:00 \u5269\u4f59\uff1a5","DoctorSN":null,"AccountType":null}
-soup = BeautifulSoup(html)
-# print (soup.prettify())
-element_t = soup.select('.sr-sou li a span')
-print 'element_t size:', len(element_t)
-paiban = element_t[0].get_text()
-print ('paiban:' + paiban)
-paiban_json = json.loads(paiban)
+    # 解析页面
+    # {"NumberSN":"76656477","Store":"cc6341dd-0bf1-4356-914c-b398118dfade","SerialNo":"0","CommendTime":"08:00-09:00","ArrangeID":null,"ModeID":"1","Remark":null,"HintType":"3","CommendScope":"08:00-09:00 \u5269\u4f59\uff1a5","DoctorSN":null,"AccountType":null}
+    soup = BeautifulSoup(html)
+    # print (soup.prettify())
+    element_t = soup.select('.sr-sou li a span')
+    print 'element_t size:', len(element_t)
+    paiban = element_t[0].get_text()
+    print ('paiban:' + paiban)
+    paiban_json = json.loads(paiban)
 
-number_sn = paiban_json['NumberSN']
-store = paiban_json['Store']
-serial_no = paiban_json['SerialNo']
-print 'number_sn:', number_sn, ',store:' + store + ',serial_no:' + serial_no
-postdata = urllib.urlencode({
-    'NumberSN': number_sn,
-    'Store': store,
-    'SerialNo': serial_no,  # 1
-    # 'CommendTime': '14:30-15:30',
-    'ArrangeID': number_sn,
-    'ModeID': '1',  # 1
-    'Remark': '',  # 1
-    'HintType': '3',  # 1
-    # 'CommendScope': '08:00-09:00 4',
-    'DoctorSN': '',  # 1
-    'AccountType': '',  # 1
-    'member_sn': 'sKZ0r6-oo6eCdXmphqV7l4ObjGmvqrNo',  # 1
-    # 可固定 医生个人页 var newOtherParams = {"hosid":"1255","deptid":"7001008","doctorid":"710016853"}
-    'dept_id': dept_id,  # 科室
-    # 可固定 医生个人页 <input type="text" name='doctor_sn' value='710015943' style="display:none;">
-    'doc_sn': doc_sn,  # 医生编号
-    'hosp_id': hosp_id,  # 医院 1255
-    'arrangeId': number_sn,  # 排班id  需求放号时获取
-    'province_id': '19',  # 省 19
-})
+    number_sn = paiban_json['NumberSN']
+    store = paiban_json['Store']
+    serial_no = paiban_json['SerialNo']
+    print 'number_sn:', number_sn, ',store:' + store + ',serial_no:' + serial_no
+    postdata = urllib.urlencode({
+        'NumberSN': number_sn,
+        'Store': store,
+        'SerialNo': serial_no,  # 1
+        # 'CommendTime': '14:30-15:30',
+        'ArrangeID': number_sn,
+        'ModeID': '1',  # 1
+        'Remark': '',  # 1
+        'HintType': '3',  # 1
+        # 'CommendScope': '08:00-09:00 4',
+        'DoctorSN': '',  # 1
+        'AccountType': '',  # 1
+        'member_sn': 'sKZ0r6-oo6eCdXmphqV7l4ObjGmvqrNo',  # 1
+        # 可固定 医生个人页 var newOtherParams = {"hosid":"1255","deptid":"7001008","doctorid":"710016853"}
+        'dept_id': dept_id,  # 科室
+        # 可固定 医生个人页 <input type="text" name='doctor_sn' value='710015943' style="display:none;">
+        'doc_sn': doc_sn,  # 医生编号
+        'hosp_id': hosp_id,  # 医院 1255
+        'arrangeId': number_sn,  # 排班id  需求放号时获取
+        'province_id': '19',  # 省 19
+    })
 
-# html = getHtml("http://www.yihu.com/RegAndArrange/doAddOrder", postdata)
-# html = '{"Code":10000,"Message":"\u6210\u529f","Data":{"Orderid":"87270559711628"}}'
-# print html
+    html = getHtml("http://www.yihu.com/RegAndArrange/doAddOrder", postdata)
+    # html = '{"Code":10000,"Message":"\u6210\u529f","Data":{"Orderid":"87270559711628"}}'
+    print html
 # data = json.loads(html)
 # order_id = data['Data']['Orderid']
 # print order_id
