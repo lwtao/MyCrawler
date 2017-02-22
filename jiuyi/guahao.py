@@ -7,14 +7,15 @@ import datetime
 from bs4 import BeautifulSoup
 
 url_list = ['http://www.yihu.com/doctor/gd/D3AEA17BD4774615B4D1B0624BD4F9CB.shtml'
-    ,'http://www.yihu.com/doctor/gd/6F66B8BF69A34235BFDFD5CEFA134D53.shtml'
-    ,'http://www.yihu.com/doctor/gd/576E193C444A4DE1816A8682270C962B.shtml'
-    ,'http://www.yihu.com/doctor/gd/743C5A3BDEDE42D1A298FB64DCF5AE36.shtml'
-    ,'http://www.yihu.com/doctor/gd/2E01DC937A5A4DE79CF8A1EE07EA2696.shtml'
-    ,'http://www.yihu.com/doctor/gd/ABFD0299B4944045816B207299281A86.shtml'
-    ,'http://www.yihu.com/doctor/gd/55289DFB029C4851B59F9C4660334091.shtml'
-    ,'http://www.yihu.com/doctor/gd/E85BF278D81640EC9310B0C0270453E5.shtml'
+    , 'http://www.yihu.com/doctor/gd/6F66B8BF69A34235BFDFD5CEFA134D53.shtml'
+    , 'http://www.yihu.com/doctor/gd/576E193C444A4DE1816A8682270C962B.shtml'
+    , 'http://www.yihu.com/doctor/gd/743C5A3BDEDE42D1A298FB64DCF5AE36.shtml'
+    , 'http://www.yihu.com/doctor/gd/2E01DC937A5A4DE79CF8A1EE07EA2696.shtml'
+    , 'http://www.yihu.com/doctor/gd/ABFD0299B4944045816B207299281A86.shtml'
+    , 'http://www.yihu.com/doctor/gd/55289DFB029C4851B59F9C4660334091.shtml'
+    , 'http://www.yihu.com/doctor/gd/E85BF278D81640EC9310B0C0270453E5.shtml'
             ]
+
 
 def getHtmlAndHeaders(url, postdata):
     headers = {'User-Agent':
@@ -38,8 +39,9 @@ def getHtml(url, postdata):
     html_result, headers_result = getHtmlAndHeaders(url, postdata)
     return html_result
 
+
 def getServerDate(index):
-    html_result, headers_result = getHtmlAndHeaders(url_list[index/(len(url_list)-1)], urllib.urlencode({}))
+    html_result, headers_result = getHtmlAndHeaders(url_list[index / (len(url_list) - 1)], urllib.urlencode({}))
     server_date_result = datetime.datetime.strptime(headers_result['Date'], '%a, %d %b %Y %H:%M:%S GMT')
     print server_date_result
     return server_date_result
@@ -48,7 +50,7 @@ def getServerDate(index):
 hosp_id = '1255'
 dept_id = '7001008'
 # 获取排班信息列表
-doc_sn = '23682'  # 需配置  张建平=23682   710015943
+doc_sn = '23682'  # 需配置  张建平=23682   张睿=23683 遗传=710230347
 page = '3'  # 需配置
 postdata = urllib.urlencode({
     'page': page,
@@ -57,13 +59,14 @@ postdata = urllib.urlencode({
 })
 yuyue_url = ''
 count = 0
+# 现在是北京时间6:30放号  服务器时间是22:30
+server_date = getServerDate(count)
+second = (30 - server_date.minute) * 60 - server_date.second - 1
+print '现在时间：', server_date, '等待：', second
+# time.sleep(second)
+
 while count < 20:
     count += 1
-    server_date = getServerDate(count)
-    # 现在是北京时间6:30放号  服务器时间是22:30
-    if server_date.minute < 30:
-        print '还未到30分，跳过去'
-        continue
     html = getHtml("http://www.yihu.com/DoctorArrange/doGetListByPage", postdata)
     soup = BeautifulSoup(html)
     # print soup.prettify()
@@ -73,9 +76,10 @@ while count < 20:
         yuyue_url = element_a[0].get('href')
         print '找到可以预约的了,预约url:', yuyue_url
         break
+        # time.sleep(0.3)
     else:
         print time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())), ',未找到可以预约的'
-        time.sleep(0.1)
+        time.sleep(4)
 
 if yuyue_url != '':
     # 获取排班详细信息
